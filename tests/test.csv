@@ -1,0 +1,20 @@
+,0,1,0,1
+0,ScanMode,Continous,ScanMode,Continous
+1,Complete,False,Complete,False
+2,Pause,False,Pause,False
+3,Current_WL,0.0,Current_WL,0.0
+4,abort,True,abort,True
+5,filename,,filename,
+6,user,,user,
+7,debug,False,debug,False
+8,Power,1,Power,1
+9,Step,1,Step,1
+10,Ndata,20001,Ndata,3
+11,Cal,[3.17032328e-04 8.41507518e-07],Cal,[3.17032328e-04 8.41507518e-07]
+12,Start_WL,1520.0,Start_WL,1520.0
+13,End_WL,1540.0,End_WL,1540.0
+14,SampFreq,100000.0,SampFreq,10.0
+15,TLSspd,100.0,TLSspd,100.0
+16,1520.0,-7.317285580016929,1520.0,-6.677867897908122
+17,1520.001,-7.3105440544632785,1530.0,-6.176820268568079
+18,1520.002,-7.303809893458187,1540.0,-2.599658316581454

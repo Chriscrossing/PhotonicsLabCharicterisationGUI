@@ -1,0 +1,5 @@
+Left to do with the GUI
+
+
+- Saving data;
+    - Probably try and just use arrays and np.genfromtxt 
