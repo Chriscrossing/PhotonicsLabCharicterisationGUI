@@ -5,6 +5,7 @@ from ThorlabsPM100 import ThorlabsPM100
 #import pickle, pyvisa
 import DAQMXclass as DQ
 import TunableLaserControl as TLC
+import pyvisa as visa
 
 
 class Scanning:
@@ -17,7 +18,7 @@ class Scanning:
         
 
     
-    def startScan(self,manager,WL,PWR):
+    def startScan(self,manager,WL,PWR,std):
         """
         Starts Scanning, since we're focusing on continous scan then this 
         process is contained in a while loop, therefore should be ran in a seperate 
@@ -27,6 +28,7 @@ class Scanning:
         self.Manager = manager
         self.WL = WL
         self.PWR = PWR
+        self.std = std
         
         if manager['abort'] == False:
             print("Scanning Starting")
@@ -149,47 +151,44 @@ class Scanning:
         samplingFreq = self.Manager['SampFreq']
         samples = self.Manager['Averages']
         
-        #"""
-        ai = DQ.AIVoltageChan(ai_param=DQ.AIParameters(samplingFreq, samples, ['/dev1/ai1']), 
-                    terminalConfig="DAQmx_Val_Diff", 
-                    trigger=None
-                    )
-        
+        rm = visa.ResourceManager()
+        inst = rm.open_resource('USB0::0x1313::0x8078::P0016482::INSTR', timeout=1)
+        power_meter = ThorlabsPM100(inst=inst)
+        power_meter.system.beeper.immediate()
+
+        power_meter.sense.power.dc.range.auto = "ON"
+        power_meter.input.pdiode.filter.lpass.state = 0
+        power_meter.sense.average.count = 10
+
         tlc = TLC.TLC()
-        
-        with tlc.connect() as TLS:
-            #tlc.set_pwr(TLS,self.Manager['Power'])
-            tlc.set_speed(TLS,int(100))
-            
-            while self.Manager['abort'] != True:
-                
+
+        while self.Manager['abort'] != True:
+            with tlc.connect() as TLS:
                 for i in range(len(self.WL[:])):
 
-                    try:
-                        if self.Manager['abort'] == True:
-                            break
-                        
-                        
-                        tlc.set_wl(TLS,self.WL[i])
-                        
+                    if self.Manager['abort'] == True:
+                        break
+                    
+                    
+                    tlc.set_wl(TLS,self.WL[i])
+                    
+                    #grab data from daq and convert to dBm
+                    mes = np.array([power_meter.read for _ in range(samples)])
+
                 
-                        #Now set away DAQ
-                        ai.start()
-                        
-                        ai.wait(timeout=int(samples/samplingFreq) + 1)
-                        
-                        #grab data from daq and convert to dBm
-                        data = self.VoltTodBm(np.average(np.array(ai.read()[:,0])))
-                        
-                        ai.stop()
-                        
-                        #set data array for plotting
-                        self.PWR[i] = data
-                    except:
-                        print("Probably trigger timout")  
-                        time.sleep(0.1)
-                        ai.stop()   
+                    
+                    #set data array for plotting
+                    self.PWR[i] = np.mean(mes)
+                    self.std[i] = np.std(mes)
+
+                    
+
+                    print(self.PWR[0:5])
+                    print(self.std[0:5])
                 self.Manager['ScanCount'] += 1
+
+                #only do one scan per button click
+                self.Manager['abort'] = True
 
         self.Manager['Complete'] = True
 

@@ -273,7 +273,7 @@ class APP(QtWidgets.QWidget):
     def switch_step(self):
         self.Handler.Variables['ScanMode'] = 'Stepping'
         self.SampFreq[2].setText("Step size (pm):")
-        self.TLSspd[2].setText("Averages per step:")
+        self.TLSspd[2].setText("Samples per step:")
         self.EffectiveRes[2].setText("SamplingFreq (kHz):")
         
         
@@ -360,6 +360,7 @@ class APP(QtWidgets.QWidget):
         
         self.Handler.WL = multiprocessing.Array('f',wavelengths)
         self.Handler.PWR = multiprocessing.Array('f',np.zeros(self.Handler.Variables['Ndata'],dtype=float))
+        self.Handler.std = multiprocessing.Array('f',np.zeros(self.Handler.Variables['Ndata'],dtype=float))
 
     def info(self,title):
         print(title)

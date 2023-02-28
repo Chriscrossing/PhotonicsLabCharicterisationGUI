@@ -50,7 +50,8 @@ class Handler:
             self.lock      = multiprocessing.Lock()
                        
             self.WL  = None
-            self.PWR =  None
+            self.PWR = None
+            self.std = None 
 
             self.Variables = manager.dict()
             self.Variables['ScanMode'] = 'Continous'
@@ -101,7 +102,7 @@ class Handler:
         #self.info("mainWatch")
         #Inisitialse Child Processes
         self.ScanControl = multiprocessing.Process(target=self.ScanningControl.startScan, 
-                                                args=(self.Variables,self.WL,self.PWR,)
+                                                args=(self.Variables,self.WL,self.PWR,self.std,)
                                                 )
         #Start Child Processes
         self.ScanControl.start()
@@ -119,7 +120,8 @@ class Handler:
         tosave = {
             "Variables":dict(self.Variables),
             "Wl":np.array(self.WL[:]),
-            "PWR":np.array(self.PWR[:])
+            "PWR":np.array(self.PWR[:]),
+            "std":np.array(self.std[:])
         }
 
         with open("../temp/curve_" + str(self.plt.curveNUM) + ".pkl", 'wb') as file:
@@ -130,7 +132,8 @@ class Handler:
 
     def savedata(self):
         """
-        This function should compile all the temporary pickled curves into one csv.
+        Switch this function to infact save all of the exerimental lines in seperate csv's, 
+        within a directory named after the experiment name
         """
 
         self.main.read_inputs()
@@ -145,7 +148,8 @@ class Handler:
         else:
             user = self.Variables['user']
  
-        workingDir = '../data/' + user + '/' + str(date.today()) + '/'
+        workingDir = '../data/' + user + '/' + str(date.today()) + '/' + str(filename) + "/"
+        
         file = workingDir + filename + ".csv" # diffirentiate from other packages
 		
         try:
@@ -155,7 +159,10 @@ class Handler:
 
 
         data = pd.DataFrame([])
+        
+        # loop through all datesets saved as pickles.
         for k,v in self.plt.curveDict.items():
+            
             with open("../temp/"+str(k)+".pkl", 'rb') as pickle_file:
                 
                 dataDict = pickle.load(pickle_file)
@@ -163,32 +170,20 @@ class Handler:
                 Vars = (list(dataDict['Variables'].items()))
                 WL   = (dataDict['Wl'])
                 PWR  = (dataDict['PWR'])
+                std  = (dataDict['std'])
 
                 print(str(k)+ ": " + str(len(WL)))
                 
-                if k == "curve_1":
-                    data = pd.DataFrame(
-                        np.row_stack(
-                            [Vars,np.column_stack([WL, PWR])]),
-                        dtype=object
-                        )
-                else:
-                    dtemp = pd.DataFrame(
-                        np.row_stack(
-                            [Vars,np.column_stack([WL, PWR])]),
-                        dtype=object
-                        )
-                    data = pd.concat([data, dtemp], axis=1)
-                    #data = data.merge(dtemp,how='left', left_on='Column1', right_on='ColumnA')
+                with open(workingDir + str(k) + '.csv', 'w', newline='') as csvfile:
+                    spamwriter = csv.writer(csvfile, delimiter=',',
+                                            quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                    
+                    spamwriter.writerow(['Variables','Values',""] )
 
+                    for i in range(0,len(Vars)):
+                        spamwriter.writerow( [Vars[i][0] , Vars[i][1], ""])
 
-        print(data)
-            
+                    spamwriter.writerow(['Wavelength','Power',"Standard Deviation"] )
 
-        try:    
-            data.to_csv(file) 
-            print("Saved Successfully")
-            self.main.status_handler("Saved")
-        except:
-            print("Save Unsuccesful")  
-            self.main.status_handler("Save Unsuccesful")
+                    for i in range(0,len(WL)):
+                        spamwriter.writerow( [WL[i] , PWR[i], std[i]])
