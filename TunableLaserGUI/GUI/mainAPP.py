@@ -10,7 +10,7 @@ import pickle
 import pandas as pd
 import os
 
-import PizoStageControl as Pizo
+#import PizoStageControl as Pizo
 
 class APP(QtWidgets.QWidget):
     
@@ -28,7 +28,7 @@ class APP(QtWidgets.QWidget):
         
         self.Handler = myWH.Handler(self.myPlt,self)
 
-        self.Stage = Pizo.Stage()
+        self.Stage = None #Pizo.Stage()
 
         #main Vars
         self.ThreadCount = False
@@ -274,7 +274,7 @@ class APP(QtWidgets.QWidget):
         self.Handler.Variables['ScanMode'] = 'Stepping'
         self.SampFreq[2].setText("Step size (pm):")
         self.TLSspd[2].setText("Samples per step:")
-        self.EffectiveRes[2].setText("SamplingFreq (kHz):")
+        self.EffectiveRes[2].setText("")
         
         
     def PizoEnterPressed(self):
@@ -325,6 +325,20 @@ class APP(QtWidgets.QWidget):
                                     endWL+step,
                                     step
                                     )
+
+            self.Handler.Variables['Ndata']   = len(wavelengths)
+
+            # round to 3dp as TLS will freak out with more dp.
+            #not needed here??
+            #wavelengths = np.round(wavelengths,decimals=3)
+
+            print(wavelengths)
+            #Init multiprocessing arrays
+            
+            self.Handler.WL = multiprocessing.Array('f',wavelengths)
+            self.Handler.PWR = {
+                "Transmission":multiprocessing.Array('f',np.zeros(self.Handler.Variables['Ndata'],dtype=float))
+                }
             
         elif self.Handler.Variables['ScanMode'] == "Stepping":
             
@@ -336,31 +350,35 @@ class APP(QtWidgets.QWidget):
             self.Handler.Variables['End_WL']        = float(self.End_WL[1].text())
             self.Handler.Variables['Step']      = float(self.SampFreq[1].text())/1000 
             self.Handler.Variables['Averages']      = int(self.TLSspd[1].text())
-            self.Handler.Variables['SampFreq']      = int(self.EffectiveRes[1].text())*1000
             
             wavelengths = np.arange(
                                 self.Handler.Variables['Start_WL'],
                                 self.Handler.Variables['End_WL']+self.Handler.Variables['Step'],
                                 self.Handler.Variables['Step']
                                 )
+
+            self.Handler.Variables['Ndata']   = len(wavelengths)
+
+            # round to 3dp as TLS will freak out with more dp.
+            wavelengths = np.round(wavelengths,decimals=3)
+
+            #print(wavelengths)
+            #Init multiprocessing arrays
             
+            self.Handler.WL = multiprocessing.Array('f',wavelengths)
+            self.Handler.PWR = {} 
+            self.Handler.std = {} 
+            self.Handler.PWR["T"] = multiprocessing.Array('f',np.zeros(self.Handler.Variables['Ndata'],dtype=float))
+            self.Handler.PWR["R"] = multiprocessing.Array('f',np.zeros(self.Handler.Variables['Ndata'],dtype=float)) 
+            self.Handler.std["T"] = multiprocessing.Array('f',np.zeros(self.Handler.Variables['Ndata'],dtype=float))
+            self.Handler.std["R"] = multiprocessing.Array('f',np.zeros(self.Handler.Variables['Ndata'],dtype=float))
+
         else:
             print("Scanmode not selected")
 
 
 
-        self.Handler.Variables['Ndata']   = len(wavelengths)
-
-        # round to 3dp as TLS will freak out with more dp.
         
-        wavelengths = np.round(wavelengths,decimals=3)
-
-        print(wavelengths)
-        #Init multiprocessing arrays
-        
-        self.Handler.WL = multiprocessing.Array('f',wavelengths)
-        self.Handler.PWR = multiprocessing.Array('f',np.zeros(self.Handler.Variables['Ndata'],dtype=float))
-        self.Handler.std = multiprocessing.Array('f',np.zeros(self.Handler.Variables['Ndata'],dtype=float))
 
     def info(self,title):
         print(title)
@@ -378,7 +396,12 @@ class APP(QtWidgets.QWidget):
                 self.read_inputs()
 
             lims = [min(self.Handler.WL),max(self.Handler.WL)]
-            self.myPlt.addCurve(lims) 
+            # increase curve num per T and R
+            self.myPlt.curveNUM += 1 
+            # add some new curves with names based off transmission and reflection
+            for item in self.Handler.PWR:
+                self.myPlt.addCurve(lims,item)
+            
 
             logging.info("Starting Loop")
             self.status_handler("Starting")

@@ -148,17 +148,23 @@ class Scanning:
         """
 
 
-        samplingFreq = self.Manager['SampFreq']
         samples = self.Manager['Averages']
         
         rm = visa.ResourceManager()
-        inst = rm.open_resource('USB0::0x1313::0x8078::P0016482::INSTR', timeout=1)
-        power_meter = ThorlabsPM100(inst=inst)
-        power_meter.system.beeper.immediate()
+        pmT = rm.open_resource('USB0::0x1313::0x8078::P0016482::INSTR', timeout=3) 
+        pmR = rm.open_resource('USB0::0x1313::0x8078::P0036985::INSTR', timeout=3)
+        
+        power_meters = {
+            "T":ThorlabsPM100(inst=pmT),
+            "R":ThorlabsPM100(inst=pmR)
+            }
 
-        power_meter.sense.power.dc.range.auto = "ON"
-        power_meter.input.pdiode.filter.lpass.state = 0
-        power_meter.sense.average.count = 10
+        for pm in power_meters:
+            power_meters[pm].system.beeper.immediate()
+            power_meters[pm].sense.power.dc.range.auto = "ON"
+            power_meters[pm].input.pdiode.filter.lpass.state = 1
+            power_meters[pm].sense.average.count = 50
+            power_meters[pm].sense.correction.wavelength = 1550
 
         tlc = TLC.TLC()
 
@@ -173,22 +179,26 @@ class Scanning:
                     tlc.set_wl(TLS,self.WL[i])
                     
                     #grab data from daq and convert to dBm
-                    mes = np.array([power_meter.read for _ in range(samples)])
-
+                    Tmes = np.array([power_meters["T"].read for _ in range(samples)])
+                    Rmes = np.array([power_meters["R"].read for _ in range(samples)])
                 
                     
                     #set data array for plotting
-                    self.PWR[i] = np.mean(mes)
-                    self.std[i] = np.std(mes)
-
+                    self.PWR["T"][i] = np.mean(Tmes)
+                    self.std["T"][i] = np.std(Tmes)
+                    
+                    self.PWR["R"][i] = np.mean(Rmes)
+                    self.std["R"][i] = np.std(Rmes)
                     
 
-                    print(self.PWR[0:5])
-                    print(self.std[0:5])
+                    print(self.PWR["T"][0:5])
+                    print(self.std["T"][0:5])
                 self.Manager['ScanCount'] += 1
 
                 #only do one scan per button click
                 self.Manager['abort'] = True
+                for pm in power_meters:
+                    power_meters[pm].system.beeper.immediate()
 
         self.Manager['Complete'] = True
 

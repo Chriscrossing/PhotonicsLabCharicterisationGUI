@@ -2,13 +2,12 @@ import pyvisa
 
 rm = pyvisa.ResourceManager()
 
-print(rm.list_resources())
+ls = rm.list_resources()
+
+with open("Output.txt", "w") as text_file:
+    for item in ls: 
+        text_file.write(str(ls) + "\n")
 
 
-for item in rm.list_resources():
-    try:
-        inst = rm.open_resource(item)
-        print(inst.query("*IDN?"))
-    except:
-        print("nop")
+
 

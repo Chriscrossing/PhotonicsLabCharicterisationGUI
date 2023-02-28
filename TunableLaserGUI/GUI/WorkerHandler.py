@@ -43,7 +43,7 @@ class Handler:
             self.main  = main
             
             
-            manager = multiprocessing.Manager()
+            self.manager = multiprocessing.Manager()
 
             #use the lock whenever changine any of the below variables.
             
@@ -53,7 +53,7 @@ class Handler:
             self.PWR = None
             self.std = None 
 
-            self.Variables = manager.dict()
+            self.Variables = self.manager.dict()
             self.Variables['ScanMode'] = 'Continous'
             self.Variables['ScanCount'] = 0
             self.Variables['Complete'] = False
@@ -80,6 +80,9 @@ class Handler:
         """
 
         if self.Variables['Complete'] == True:
+            with self.lock:
+                #APPLY WL OFFSET
+                self.plt.update(self.WL,self.PWR)
             self.main.finished_scan()
             self.ScanControl.join()
             self.main.reset_vars()
@@ -116,16 +119,17 @@ class Handler:
         the temp directory, ready to be compiled into one csv at the end.
         """
 
+        for key in self.PWR:
         
-        tosave = {
-            "Variables":dict(self.Variables),
-            "Wl":np.array(self.WL[:]),
-            "PWR":np.array(self.PWR[:]),
-            "std":np.array(self.std[:])
-        }
+            tosave = {
+                "Variables":dict(self.Variables),
+                "Wl":np.array(self.WL[:]),
+                "PWR":np.array(self.PWR[key][:]),
+                "std":np.array(self.std[key][:])
+            }
 
-        with open("../temp/curve_" + str(self.plt.curveNUM) + ".pkl", 'wb') as file:
-            pickle.dump(tosave,file)
+            with open("../temp/" + key +"_curve_" + str(self.plt.curveNUM) + ".pkl", 'wb') as file:
+                pickle.dump(tosave,file)
 
         print("Saved Temp Data")
 
@@ -138,6 +142,10 @@ class Handler:
 
         self.main.read_inputs()
 
+        """
+        User input management
+        """
+
         if self.Variables['filename'] == '':
             filename = "Default"
         else:
@@ -148,17 +156,21 @@ class Handler:
         else:
             user = self.Variables['user']
  
+        """
+        Create directory
+        """
+
         workingDir = '../data/' + user + '/' + str(date.today()) + '/' + str(filename) + "/"
         
-        file = workingDir + filename + ".csv" # diffirentiate from other packages
-		
         try:
             os.makedirs(workingDir)
         except:
             print('AlreadyDir')
 
 
-        data = pd.DataFrame([])
+        """
+        Save all curves
+        """
         
         # loop through all datesets saved as pickles.
         for k,v in self.plt.curveDict.items():

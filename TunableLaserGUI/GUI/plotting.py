@@ -52,14 +52,16 @@ class WdgPlot(QtWidgets.QWidget):
         self.layout = QtWidgets.QVBoxLayout(self)
         self.layout.addWidget(self.win)
 
-    def addCurve(self,lims):
+    def addCurve(self,lims,item):
         """
         I'm storing curves in a dictionary, this function adds a new curve and increments 
         curveNUM by +1, this means the previous curve is retained on screen. 
         """
-        self.curveNUM += 1
-        
-        self.curveDict["curve_" + str(self.curveNUM)] = self.p1.plot(
+        #self.curveNUM += 1
+
+        itemStr = item +"_curve_"+str(self.curveNUM)
+        print("Adding curve:" + str(itemStr))
+        self.curveDict[itemStr] = self.p1.plot(
                                                                     pen=pg.mkPen(color=self.colours[self.curveNUM % 9], 
                                                                     width=3
                                                                     )
@@ -78,22 +80,26 @@ class WdgPlot(QtWidgets.QWidget):
         """
         figure update function, updates the plot from the given WL and PWR arrays.
         """
+        """
+        for key in PWR:
+            print("Key:")
+            print(key)
+            print("Value:")
+            print(PWR[key][:])
 
+        """
         #resample data down to max of 10k datapoints for pyqt optimisation
         current_dpts = len(WL[:])
+        pwr = {}
+        for key in PWR:
+            if current_dpts > 10000:
+                dpts = 10000
+                wl = np.linspace(min(WL[:]),max(WL[:]),dpts)
+                pwr = signal.resample(PWR[key][:],dpts)
+            else:
+                wl = WL[:]
+                pwr = PWR[key][:]
         
-        
-        if current_dpts > 10000:
-            dpts = 10000
-            wl = np.linspace(min(WL[:]),max(WL[:]),dpts)
-            pwr = signal.resample(PWR[:],dpts)
-        else:
-            wl = WL[:]
-            pwr = PWR[:]
-            
-        
-        
-        data = np.transpose(np.array([wl,pwr]))
-        
-        
-        self.curveDict["curve_"+str(self.curveNUM)].setData(data)
+            data = np.transpose(np.array([wl,pwr]))
+
+            self.curveDict[key +"_curve_"+str(self.curveNUM)].setData(data)
