@@ -140,6 +140,10 @@ class Scanning:
 
         self.Manager['Complete'] = True
         
+    
+    def readPM100D(self,power_meter,samples):
+        return np.array([power_meter.read for _ in range(samples)])
+    
     def stepping(self):
         """
         Stepping Sweep
@@ -151,8 +155,8 @@ class Scanning:
         samples = self.Manager['Averages']
         
         rm = visa.ResourceManager()
-        pmT = rm.open_resource('USB0::0x1313::0x8078::P0016482::INSTR', timeout=3) 
-        pmR = rm.open_resource('USB0::0x1313::0x8078::P0036985::INSTR', timeout=3)
+        pmT = rm.open_resource('USB0::0x1313::0x8078::P0016482::INSTR', timeout=10) 
+        pmR = rm.open_resource('USB0::0x1313::0x8078::P0036985::INSTR', timeout=10)
         
         power_meters = {
             "T":ThorlabsPM100(inst=pmT),
@@ -162,9 +166,9 @@ class Scanning:
         for pm in power_meters:
             power_meters[pm].system.beeper.immediate()
             power_meters[pm].sense.power.dc.range.auto = "ON"
-            power_meters[pm].input.pdiode.filter.lpass.state = 1
-            power_meters[pm].sense.average.count = 50
-            power_meters[pm].sense.correction.wavelength = 1550
+            power_meters[pm].input.pdiode.filter.lpass.state = 0
+            power_meters[pm].sense.average.count = 20
+            #power_meters[pm].sense.correction.wavelength = 1550
 
         tlc = TLC.TLC()
 
@@ -179,8 +183,8 @@ class Scanning:
                     tlc.set_wl(TLS,self.WL[i])
                     
                     #grab data from daq and convert to dBm
-                    Tmes = np.array([power_meters["T"].read for _ in range(samples)])
-                    Rmes = np.array([power_meters["R"].read for _ in range(samples)])
+                    Tmes = self.readPM100D(power_meters['T'],samples)
+                    Rmes = self.readPM100D(power_meters['R'],samples)
                 
                     
                     #set data array for plotting
@@ -191,8 +195,8 @@ class Scanning:
                     self.std["R"][i] = np.std(Rmes)
                     
 
-                    print(self.PWR["T"][0:5])
-                    print(self.std["T"][0:5])
+                    #print(self.PWR["T"][0:5])
+                    #print(self.std["T"][0:5])
                 self.Manager['ScanCount'] += 1
 
                 #only do one scan per button click
