@@ -6,6 +6,53 @@ from ThorlabsPM100 import ThorlabsPM100
 import DAQMXclass as DQ
 import TunableLaserControl as TLC
 import pyvisa as visa
+import math
+
+class PM100D:
+    def __init__(self,Detector):
+        self.rm = visa.ResourceManager()
+        self.pivisa_device = self.rm.open_resource(Detector, timeout=3) 
+        self.D = ThorlabsPM100(inst=self.pivisa_device)
+
+        max_sense = self.D.sense.power.dc.range.maximum_upper 
+        min_sense = self.D.sense.power.dc.range.minimum_upper
+        n_sense = math.floor(math.log(max_sense/min_sense,10)) + 1
+        self.Sense = np.zeros(n_sense+1)
+        self.Sense[0] = np.format_float_scientific(max_sense, unique=False, precision=3)
+        self.Sense[-1] = 0
+
+        for i in range(0,n_sense-1):
+            self.Sense[i+1] = np.format_float_scientific(self.Sense[i]/10,precision=3)
+
+    
+    def beep(self):
+        self.D.system.beeper.immediate()
+        
+    def set_auto_range(self):   
+        self.D.sense.power.dc.range.auto = "ON"
+        
+    def set_manual_range(self,range):
+        #self.D.sense.power.dc.range.auto = "OFF"
+        self.D.sense.power.dc.range.upper = range
+
+    def set_bandwidth(self,BW=""):
+        if BW == "Hi":
+            self.D.input.pdiode.filter.lpass.state = 0
+        elif BW =="Lo":
+            self.D.input.pdiode.filter.lpass.state = 1
+        else:
+            print("BW not specified")
+
+    def set_ave_count(self,averages):
+        self.D.sense.average.count = int(averages)
+
+    def measure(self,samples):
+        return np.array([self.D.read for _ in range(samples)])*1e6
+
+    def disconnect(self):
+        self.pivisa_device.close()
+
+        
 
 
 class Scanning:
@@ -14,7 +61,11 @@ class Scanning:
         logging.info("Init TF")
         #share vars.k
         self.phase = 0 
-       
+
+        self.T_Detector = 'USB0::0x1313::0x8078::P0016482::INSTR'
+        self.R_Detector = 'USB0::0x1313::0x8078::P0036985::INSTR'
+
+
         
 
     
@@ -93,6 +144,12 @@ class Scanning:
         but this will be difficult to figure out how to to forward and reverse scans. 
         """
 
+        #pmT = PM100D(self.T_Detector)
+
+        #pmT.beep()
+        #pmT.set_bandwidth(BW="Hi")
+
+
 
         samplingFreq = self.Manager['SampFreq']
         samples = len(self.WL[:])
@@ -110,28 +167,29 @@ class Scanning:
             tlc.set_speed(TLS,self.Manager['TLSspd'])
             
             while self.Manager['abort'] != True:
-                try:
-                    tlc.set_wl(TLS,self.WL[0])
-            
-                    #Now set away DAQ
-                    ai.start()
-                    
-                    #and set away TLS scanning to end wl
-                    tlc.set_wl(TLS,self.WL[-1],wait=False)
-                    
-                    ai.wait(timeout=int(samples/samplingFreq) + 4)
-                    
-                    #grab data from daq and convert to dBm
-                    data = self.VoltTodBm(np.array(ai.read()[:,0]))
-                    
-                    ai.stop()
-                    
-                    #set data array for plotting
-                    self.PWR[:] = data
-                except:
-                    print("Probably trigger timout")  
-                    time.sleep(0.1)
-                    ai.stop()   
+                #try:
+                tlc.set_wl(TLS,self.WL[0])
+        
+                #Now set away DAQ
+                ai.start()
+                
+                #and set away TLS scanning to end wl
+                tlc.set_wl(TLS,self.WL[-1],wait=False)
+                
+                ai.wait(timeout=int(samples/samplingFreq) + 4)
+                
+                #grab data from daq and convert to dBm
+                data = self.VoltTodBm(np.array(ai.read()[:,0]))
+                
+                ai.stop()
+                
+                #set data array for plotting
+                self.PWR["T"][:] = data
+
+                #except:
+                #    print("Probably trigger timout")  
+                #    time.sleep(0.1)
+                #    ai.stop()   
 
                 self.Manager['ScanCount'] += 1
                     
@@ -141,8 +199,7 @@ class Scanning:
         self.Manager['Complete'] = True
         
     
-    def readPM100D(self,power_meter,samples):
-        return np.array([power_meter.read for _ in range(samples)])
+    
     
     def stepping(self):
         """
@@ -154,20 +211,18 @@ class Scanning:
 
         samples = self.Manager['Averages']
         
-        rm = visa.ResourceManager()
-        pmT = rm.open_resource('USB0::0x1313::0x8078::P0016482::INSTR', timeout=10) 
-        pmR = rm.open_resource('USB0::0x1313::0x8078::P0036985::INSTR', timeout=10)
-        
+        pmT = PM100D(self.T_Detector)
+        pmR = PM100D(self.R_Detector)
         power_meters = {
-            "T":ThorlabsPM100(inst=pmT),
-            "R":ThorlabsPM100(inst=pmR)
+            "T":pmT,
+            "R":pmR
             }
 
         for pm in power_meters:
-            power_meters[pm].system.beeper.immediate()
-            power_meters[pm].sense.power.dc.range.auto = "ON"
-            power_meters[pm].input.pdiode.filter.lpass.state = 0
-            power_meters[pm].sense.average.count = 20
+            power_meters[pm].beep()
+            power_meters[pm].set_auto_range()
+            power_meters[pm].set_bandwidth("Hi")
+            power_meters[pm].set_ave_count(20)
             #power_meters[pm].sense.correction.wavelength = 1550
 
         tlc = TLC.TLC()
@@ -182,9 +237,9 @@ class Scanning:
                     
                     tlc.set_wl(TLS,self.WL[i])
                     
-                    #grab data from daq and convert to dBm
-                    Tmes = self.readPM100D(power_meters['T'],samples)
-                    Rmes = self.readPM100D(power_meters['R'],samples)
+                    #grab data from pm100d
+                    Tmes = pmT.measure(samples)
+                    Rmes = pmR.measure(samples)
                 
                     
                     #set data array for plotting

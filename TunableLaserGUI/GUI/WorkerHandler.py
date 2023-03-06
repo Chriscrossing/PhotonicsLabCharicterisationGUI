@@ -93,8 +93,8 @@ class Handler:
         else:
             #with Timer("Plot Update"):
             with self.lock:
-                #APPLY WL OFFSET
                 self.plt.update(self.WL,self.PWR)
+
                 
     
     def mainWatch(self):
@@ -120,14 +120,20 @@ class Handler:
         """
 
         for key in self.PWR:
-        
-            tosave = {
-                "Variables":dict(self.Variables),
-                "Wl":np.array(self.WL[:]),
-                "PWR":np.array(self.PWR[key][:]),
-                "std":np.array(self.std[key][:])
-            }
-
+            
+            if self.Variables['ScanMode'] == "Stepping":
+                tosave = {
+                    "Variables":dict(self.Variables),
+                    "Wl":np.array(self.WL[:]),
+                    "PWR":np.array(self.PWR[key][:]),
+                    "std":np.array(self.std[key][:])
+                }
+            else:
+                tosave = {
+                    "Variables":dict(self.Variables),
+                    "Wl":np.array(self.WL[:]),
+                    "PWR":np.array(self.PWR[key][:])
+                }
             with open("../temp/" + key +"_curve_" + str(self.plt.curveNUM) + ".pkl", 'wb') as file:
                 pickle.dump(tosave,file)
 
@@ -182,20 +188,38 @@ class Handler:
                 Vars = (list(dataDict['Variables'].items()))
                 WL   = (dataDict['Wl'])
                 PWR  = (dataDict['PWR'])
-                std  = (dataDict['std'])
-
+                
                 print(str(k)+ ": " + str(len(WL)))
                 
-                with open(workingDir + str(k) + '.csv', 'w', newline='') as csvfile:
-                    spamwriter = csv.writer(csvfile, delimiter=',',
-                                            quotechar='|', quoting=csv.QUOTE_MINIMAL)
-                    
-                    spamwriter.writerow(['Variables','Values',""] )
+                if self.Variables['ScanMode'] == "Stepping":
+                    std  = (dataDict['std'])
 
-                    for i in range(0,len(Vars)):
-                        spamwriter.writerow( [Vars[i][0] , Vars[i][1], ""])
+                    with open(workingDir + str(k) + '.csv', 'w', newline='') as csvfile:
+                        spamwriter = csv.writer(csvfile, delimiter=',',
+                                                quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                        
+                        spamwriter.writerow(['Variables','Values',""] )
 
-                    spamwriter.writerow(['Wavelength','Power',"Standard Deviation"] )
+                        for i in range(0,len(Vars)):
+                            spamwriter.writerow( [Vars[i][0] , Vars[i][1], ""])
 
-                    for i in range(0,len(WL)):
-                        spamwriter.writerow( [WL[i] , PWR[i], std[i]])
+                        spamwriter.writerow(['Wavelength / nm','Power / W',"Standard Deviation"] )
+
+                        for i in range(0,len(WL)):
+                            spamwriter.writerow( [WL[i] , PWR[i]/1e6, std[i]])
+
+                else:
+                    with open(workingDir + str(k) + '.csv', 'w', newline='') as csvfile:
+                        spamwriter = csv.writer(csvfile, delimiter=',',
+                                                quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                        
+                        spamwriter.writerow(['Variables','Values',""] )
+
+                        for i in range(0,len(Vars)):
+                            spamwriter.writerow( [Vars[i][0] , Vars[i][1], ""])
+
+                        spamwriter.writerow(['Wavelength / nm','Power / uW'] )
+
+                        for i in range(0,len(WL)):
+                            spamwriter.writerow( [WL[i] , PWR[i]])
+

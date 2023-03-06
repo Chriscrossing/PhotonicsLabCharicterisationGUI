@@ -320,10 +320,10 @@ class APP(QtWidgets.QWidget):
             step = delta/dpts
             self.EffectiveRes[1].setText(str(step*1000))
 
-            wavelengths = np.arange(
+            wavelengths = np.linspace(
                                     startWL,
-                                    endWL+step,
-                                    step
+                                    endWL,
+                                    dpts
                                     )
 
             self.Handler.Variables['Ndata']   = len(wavelengths)
@@ -337,7 +337,7 @@ class APP(QtWidgets.QWidget):
             
             self.Handler.WL = multiprocessing.Array('f',wavelengths)
             self.Handler.PWR = {
-                "Transmission":multiprocessing.Array('f',np.zeros(self.Handler.Variables['Ndata'],dtype=float))
+                "T":multiprocessing.Array('f',np.zeros(self.Handler.Variables['Ndata'],dtype=float))
                 }
             
         elif self.Handler.Variables['ScanMode'] == "Stepping":
