@@ -10,6 +10,8 @@ import pickle
 import pandas as pd
 import os
 
+import Powermeter as PM
+
 #import PizoStageControl as Pizo
 
 class APP(QtWidgets.QWidget):
@@ -29,6 +31,8 @@ class APP(QtWidgets.QWidget):
         self.Handler = myWH.Handler(self.myPlt,self)
 
         self.Stage = None #Pizo.Stage()
+
+        self.PM = PM
 
         #main Vars
         self.ThreadCount = False
@@ -59,6 +63,12 @@ class APP(QtWidgets.QWidget):
         self.startButton.setFixedWidth(150)
         self.startButton.clicked.connect(self.start)
         self.StartButton.addWidget(self.startButton)
+
+        self.ConnectButton = QtWidgets.QHBoxLayout()
+        self.connectButton = QtWidgets.QPushButton("Connect PMs")
+        self.connectButton.setFixedWidth(150)
+        self.connectButton.clicked.connect(self.connect)
+        self.ConnectButton.addWidget(self.connectButton)
         
 
         self.ClearButton = QtWidgets.QHBoxLayout()
@@ -136,21 +146,35 @@ class APP(QtWidgets.QWidget):
         Thorlabs Sensitivity Dropdown menu 
         """
         
-        DropDownLab = QtWidgets.QLabel("PM Sensitivity:")
-        DropDownLab.setFixedWidth(150)
+        PMT_sense_lab = QtWidgets.QLabel("T Sense maximum:")
+        PMT_sense_lab.setFixedWidth(150)
         
-        self.Dropdown1 = QtWidgets.QComboBox()
-        self.Dropdown1.addItem("63mW")
-        self.Dropdown1.addItem("6.3mW")
-        self.Dropdown1.addItem("630uW")
-        self.Dropdown1.addItem("63uW")
-        self.Dropdown1.addItem("6.3uW")
-        self.Dropdown1.addItem("630nW")
-        self.Dropdown1.currentIndexChanged.connect(self.SetCalibration)
+        self.PMT_sense = QtWidgets.QComboBox()
+        #self.PMT_sense.addItem("63mW")
+        #self.PMT_sense.addItem("6.3mW")
+        #self.PMT_sense.addItem("630uW")
+        #self.PMT_sense.addItem("63uW")
+        #self.PMT_sense.addItem("6.3uW")
+        #self.PMT_sense.addItem("630nW")
+        self.PMT_sense.currentIndexChanged.connect(self.SetCalibrationT)
+
+        PMR_sense_lab = QtWidgets.QLabel("R Sense maximum:")
+        PMR_sense_lab.setFixedWidth(150)
         
-        self.Calinput =  QtWidgets.QHBoxLayout() 
-        self.Calinput.addWidget(DropDownLab)
-        self.Calinput.addWidget(self.Dropdown1)
+        self.PMR_sense = QtWidgets.QComboBox()
+        self.PMR_sense.currentIndexChanged.connect(self.SetCalibrationR)
+        
+        PMT_sense_bx =  QtWidgets.QHBoxLayout() 
+        PMT_sense_bx.addWidget(PMT_sense_lab)
+        PMT_sense_bx.addWidget(self.PMT_sense)
+        
+        PMR_sense_bx =  QtWidgets.QHBoxLayout() 
+        PMR_sense_bx.addWidget(PMR_sense_lab)
+        PMR_sense_bx.addWidget(self.PMR_sense)
+
+        self.Sense_Widget = QtWidgets.QVBoxLayout() 
+        self.Sense_Widget.addLayout(PMT_sense_bx)
+        self.Sense_Widget.addLayout(PMR_sense_bx)
 
         """
         Nanostepping stage controls
@@ -201,7 +225,8 @@ class APP(QtWidgets.QWidget):
         vbox1 = QtWidgets.QVBoxLayout()
         vbox1.addLayout(self.RadioButtons)
         vbox1.addLayout(self.Defaults)
-        vbox1.addLayout(self.Calinput)
+        vbox1.addLayout(self.Sense_Widget)
+        vbox1.addLayout(self.ConnectButton)
         vbox1.addLayout(self.Start_WL[0])
         vbox1.addLayout(self.End_WL[0])
         vbox1.addLayout(self.TLSspd[0])
@@ -386,6 +411,25 @@ class APP(QtWidgets.QWidget):
         print('parent process:', os.getppid())
         print('process id:', os.getpid())
 
+    def setSense(self,dropdown,items):
+        dropdown.clear()
+        for item in items:
+            dropdown.addItem(str(item))
+
+    def connect(self):
+        self.PmT = self.PM.PM100D(self.PM.T_Detector)
+        self.setSense(self.PMT_sense,self.PmT.Sense)
+        try:
+            self.PmR = self.PM.PM100D(self.PM.R_Detector)
+            self.setSense(self.PMR_sense,self.PmR.Sense)
+        except:
+            print("Reflection not connected")
+
+        self.Handler.Variables['PmT'] = self.PmT
+        self.Handler.Variables['PmR'] = self.PmR
+        
+
+
     def start(self):
 
         if self.ThreadCount == False:
@@ -409,7 +453,7 @@ class APP(QtWidgets.QWidget):
             #Make a csv (or add to an existing csv) and input starting values
             
 
-            #Print to log and set threadcount to True (stop multiple runs)
+            #Print to log and set tsashreadcount to True (stop multiple runs)
             self.ThreadCount = True
             
 
@@ -433,14 +477,30 @@ class APP(QtWidgets.QWidget):
             self.Handler.update()
             self.start()
 
-    def SetCalibration(self):
-        idx = self.Dropdown1.currentIndex()
+    def SetCalibrationT(self):
+        """
+        This is the calibration for the PM100D and S122C photodiode combo when using the DAQ.
+        """
+        idx = self.PMT_sense.currentIndex()
+        val = self.PMT_sense.currentText()
 
         calArray = np.array([0.0316575511,-0.0000126141123,0.00314278794,0.000000937223181,0.000317032328,0.000000841507518,0.000031994015,-0.000000093578136,0.00000315652491,-2.07959957E-09,0.000000318418212,9.15660877E-09])
         
         self.Handler.Variables['Cal'] = calArray[2*idx:2*idx+2]
         print(self.Handler.Variables['Cal'])
 
+        """
+        we will also now set the sensitivity on the PM100D itself:
+        """
+        self.PmT.set_manual_range(float(val))
+
+    def SetCalibrationR(self):
+        """
+        For now the reflection PM will only be used in stepping scanning so just set the power sensitivity on the device itself.
+        """
+        val = self.PMR_sense.currentText()
+
+        self.PmR.set_manual_range(float(val))
     
 
     def WL_Status(self,WL):

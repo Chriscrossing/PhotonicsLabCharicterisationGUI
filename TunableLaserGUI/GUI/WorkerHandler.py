@@ -33,12 +33,12 @@ class Handler:
     """
     def __init__(self,myPlt,main):#,mainAPP,myPlt):
         if __name__ == "WorkerHandler":
-            import ScanningControl as SC
+            
             
             #initialise all variables.
             self.abort = False
             #self.main = mainAPP
-            self.ScanningControl = SC.Scanning()
+            
             self.plt   = myPlt
             self.main  = main
             
@@ -101,9 +101,11 @@ class Handler:
         """
         Start the child process that collects data, passing it into the multiprocessing shared variables
         """
-
+        import ScanningControl as SC
+        self.ScanningControl = SC.Scanning()
         #self.info("mainWatch")
         #Inisitialse Child Processes
+        
         self.ScanControl = multiprocessing.Process(target=self.ScanningControl.startScan, 
                                                 args=(self.Variables,self.WL,self.PWR,self.std,)
                                                 )

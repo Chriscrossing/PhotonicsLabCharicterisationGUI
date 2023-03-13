@@ -1,58 +1,12 @@
 from multiprocessing import Manager
 import time, logging
 import numpy as np
-from ThorlabsPM100 import ThorlabsPM100
 #import pickle, pyvisa
 import DAQMXclass as DQ
 import TunableLaserControl as TLC
-import pyvisa as visa
-import math
+#import Powermeter as PM
 
-class PM100D:
-    def __init__(self,Detector):
-        self.rm = visa.ResourceManager()
-        self.pivisa_device = self.rm.open_resource(Detector, timeout=3) 
-        self.D = ThorlabsPM100(inst=self.pivisa_device)
-
-        max_sense = self.D.sense.power.dc.range.maximum_upper 
-        min_sense = self.D.sense.power.dc.range.minimum_upper
-        n_sense = math.floor(math.log(max_sense/min_sense,10)) + 1
-        self.Sense = np.zeros(n_sense+1)
-        self.Sense[0] = np.format_float_scientific(max_sense, unique=False, precision=3)
-        self.Sense[-1] = 0
-
-        for i in range(0,n_sense-1):
-            self.Sense[i+1] = np.format_float_scientific(self.Sense[i]/10,precision=3)
-
-    
-    def beep(self):
-        self.D.system.beeper.immediate()
-        
-    def set_auto_range(self):   
-        self.D.sense.power.dc.range.auto = "ON"
-        
-    def set_manual_range(self,range):
-        #self.D.sense.power.dc.range.auto = "OFF"
-        self.D.sense.power.dc.range.upper = range
-
-    def set_bandwidth(self,BW=""):
-        if BW == "Hi":
-            self.D.input.pdiode.filter.lpass.state = 0
-        elif BW =="Lo":
-            self.D.input.pdiode.filter.lpass.state = 1
-        else:
-            print("BW not specified")
-
-    def set_ave_count(self,averages):
-        self.D.sense.average.count = int(averages)
-
-    def measure(self,samples):
-        return np.array([self.D.read for _ in range(samples)])*1e6
-
-    def disconnect(self):
-        self.pivisa_device.close()
-
-        
+       
 
 
 class Scanning:
@@ -61,20 +15,20 @@ class Scanning:
         logging.info("Init TF")
         #share vars.k
         self.phase = 0 
+        self.PM = None #PM        
 
-        self.T_Detector = 'USB0::0x1313::0x8078::P0016482::INSTR'
-        self.R_Detector = 'USB0::0x1313::0x8078::P0036985::INSTR'
-
-
-        
-
-    
     def startScan(self,manager,WL,PWR,std):
         """
         Starts Scanning, since we're focusing on continous scan then this 
         process is contained in a while loop, therefore should be ran in a seperate 
         thread.
         """
+
+        self.PmT = None #self.PM.PM100D(self.PM.T_Detector)
+        try:
+            self.PmR = None #self.PM.PM100D(self.PM.R_Detector)
+        except:
+            print("Reflection not connected")
 
         self.Manager = manager
         self.WL = WL
@@ -213,9 +167,11 @@ class Scanning:
         
         pmT = PM100D(self.T_Detector)
         pmR = PM100D(self.R_Detector)
+        
+        
         power_meters = {
-            "T":pmT,
-            "R":pmR
+            "T":self.pmT,
+            "R":self.pmR
             }
 
         for pm in power_meters:
