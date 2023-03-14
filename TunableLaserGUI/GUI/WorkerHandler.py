@@ -42,7 +42,8 @@ class Handler:
             self.plt   = myPlt
             self.main  = main
             
-            
+            self.Rpts = 0
+
             self.manager = multiprocessing.Manager()
 
             #use the lock whenever changine any of the below variables.
@@ -87,6 +88,13 @@ class Handler:
             self.main.finished_scan()
             self.ScanControl.join()
             self.main.reset_vars()
+            
+            self.Rpts += 1
+            if self.Rpts < self.Variables['Repeats']:
+                self.main.start()
+            elif self.Rpts >= self.Variables['Repeats']:
+                self.Rpts = 0
+
         elif self.Variables['abort'] == True:
             self.main.finished_scan()
             self.ScanControl.join()

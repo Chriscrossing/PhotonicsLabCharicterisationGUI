@@ -252,19 +252,7 @@ class APP(QtWidgets.QWidget):
         else:
             event.ignore()        
 
-    def reset_vars(self):
-        self.ThreadCount = False
-        self.Handler.Variables['abort'] = False
-        self.Handler.Variables['Complete'] = False
-        self.Handler.Variables['Pause'] = False
-        
-        if self.timer != None:
-            self.timer.stop()
-            self.statusTimer.stop()
-
-
-        #self.PWMfreq.setText(str(self.LC.freq))
-        #self.Duty.setText(str(self.LC.duty)
+    
 
     def switch_cont(self):
         self.Handler.Variables['ScanMode'] = 'Continous'
@@ -460,6 +448,19 @@ class APP(QtWidgets.QWidget):
         self.myPlt.removeALL()
         self.status_handler("Data Cleared")
 
+    def reset_vars(self):
+        self.ThreadCount = False
+        self.Handler.Variables['abort'] = False
+        self.Handler.Variables['Complete'] = False
+        self.Handler.Variables['Pause'] = False
+        
+        if self.timer != None:
+            self.timer.stop()
+            self.statusTimer.stop()
+
+
+        #self.PWMfreq.setText(str(self.LC.freq))
+        #self.Duty.setText(str(self.LC.duty)
         
     def finished_scan(self):
         self.status_handler("Scan Complete")
