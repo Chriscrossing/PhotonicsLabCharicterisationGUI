@@ -260,6 +260,8 @@ class APP(QtWidgets.QWidget):
         
         if self.timer != None:
             self.timer.stop()
+            self.statusTimer.stop()
+
 
         #self.PWMfreq.setText(str(self.LC.freq))
         #self.Duty.setText(str(self.LC.duty)
@@ -274,7 +276,7 @@ class APP(QtWidgets.QWidget):
         self.Handler.Variables['ScanMode'] = 'Stepping'
         self.SampFreq[2].setText("Step size (pm):")
         self.TLSspd[2].setText("Samples per step:")
-        self.EffectiveRes[2].setText("")
+        self.EffectiveRes[2].setText("Scan Repeats:")
         
         
     def PizoEnterPressed(self):
@@ -350,7 +352,9 @@ class APP(QtWidgets.QWidget):
             self.Handler.Variables['End_WL']        = float(self.End_WL[1].text())
             self.Handler.Variables['Step']      = float(self.SampFreq[1].text())/1000 
             self.Handler.Variables['Averages']      = int(self.TLSspd[1].text())
-            
+            self.Handler.Variables['Repeats']       = int(self.EffectiveRes[1].text())
+
+
             wavelengths = np.arange(
                                 self.Handler.Variables['Start_WL'],
                                 self.Handler.Variables['End_WL']+self.Handler.Variables['Step'],
@@ -386,6 +390,7 @@ class APP(QtWidgets.QWidget):
         print('parent process:', os.getppid())
         print('process id:', os.getpid())
 
+
     def start(self):
 
         if self.ThreadCount == False:
@@ -415,20 +420,25 @@ class APP(QtWidgets.QWidget):
 
             self.Handler.mainWatch()
 
+            
+
             #Start GUI update timer
             self.timer = pg.QtCore.QTimer(self)
             self.timer.timeout.connect(self.Handler.update)
-            self.timer.start(200)
+            self.timer.start(100)
 
             self.statusTimer = pg.QtCore.QTimer(self)
             self.statusTimer.timeout.connect(self.scanStatusUpdate)
-            self.timer.start(500)
+            self.statusTimer.start(200)
+
+            
             
             
         else:
             #if already running, instead just add a new curve, saving the old onn stored
             #in memory ready for saving to file
             
+            #print("In Scan -> Else")
             self.abort()
             self.Handler.update()
             self.start()
@@ -471,6 +481,8 @@ class APP(QtWidgets.QWidget):
         
     def scanStatusUpdate(self):
         self.status_handler(self.Handler.Variables['ScanCount'])
+            
+
 
     def status_handler(self,value):
         #logging.info(str(value))

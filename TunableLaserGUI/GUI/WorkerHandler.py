@@ -56,6 +56,7 @@ class Handler:
             self.Variables = self.manager.dict()
             self.Variables['ScanMode'] = 'Continous'
             self.Variables['ScanCount'] = 0
+            self.Variables['Repeats'] = 1
             self.Variables['Complete'] = False
             self.Variables['Pause']    = False
             self.Variables['Current_WL'] = 0.0

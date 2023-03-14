@@ -257,8 +257,9 @@ class Scanning:
                 #only do one scan per button click
                 self.Manager['abort'] = True
                 for pm in power_meters:
-                    power_meters[pm].system.beeper.immediate()
+                    power_meters[pm].beep()
 
+        
         self.Manager['Complete'] = True
 
 
